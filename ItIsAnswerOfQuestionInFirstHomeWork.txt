@@ -1,1 +1,25 @@
-test
+сделать в первой сессии новую таблицу и наполнить ее данными create table persons(id serial, first_name text, second_name text); insert into persons(first_name, second_name) values('ivan', 'ivanov'); insert into persons(first_name, second_name) values('petr', 'petrov'); commit;
+посмотреть текущий уровень изоляции: show transaction isolation level
+начать новую транзакцию в обоих сессиях с дефолтным (не меняя) уровнем изоляции
+в первой сессии добавить новую запись insert into persons(first_name, second_name) values('sergey', 'sergeev');
+сделать select * from persons во второй сессии
+видите ли вы новую запись и если да то почему?
+1 Ответ: Новую запись не вижу, потомучто на уровне изоляции по умолчанию(Read committed) не допустимо грязное чтение.
+завершить первую транзакцию - commit;
+сделать select * from persons во второй сессии
+видите ли вы новую запись и если да то почему?
+2 Ответ: Новую запись вижу, потомучто на уровне изоляции по умолчанию(Read committed) допустимо фантомное чтение.
+завершите транзакцию во второй сессии
+начать новые но уже repeatable read транзации - set transaction isolation level repeatable read;
+в первой сессии добавить новую запись insert into persons(first_name, second_name) values('sveta', 'svetova');
+сделать select * from persons во второй сессии
+видите ли вы новую запись и если да то почему?
+3 Ответ: Новую запись не вижу, потомучто на уровне изоляции repeatable read не допустимо грязное чтение.
+завершить первую транзакцию - commit;
+сделать select * from persons во второй сессии
+видите ли вы новую запись и если да то почему?
+4 Ответ: Новую запись не вижу, потомучто на уровне изоляции repeatable read не допустимо фантомное чтение.
+завершить вторую транзакцию
+сделать select * from persons во второй сессии
+видите ли вы новую запись и если да то почему? 
+4 Ответ: Новую запись вижу, потому что данные из первой транзакции зафиксированы до начала работы текущей транзакции во второй сессии.
