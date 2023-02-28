@@ -1,0 +1,14 @@
+1 Создал ВМ в yandex cloud
+2 Установил Docker Engine с сайта https://docs.docker.com/engine/install/ubuntu/
+3 Создал в докере postgres использовал инструкцию из татьи https://habr.com/ru/post/578744/
+3.1 Для того чтоб была возможность работать с ним сделал проброс портов -p 5432:5432
+3.2 Для того что данные распологались не в докере добавил параметр PGDATA=/var/lib/postgres
+3.3 Полная команда создания  docker run --name postgres_test1 -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=12345 -e POSTGRES_DB=postgres -e PGDATA=/var/lib/postgres -d -v "/var/lib/postgres":/var/lib/postgres  postgres:14
+4 Подключился удаленно psql -U postgres -p 5432 -h 158.160.22.186
+5 Создал таблицу test1
+6 Удалил инстанс с postgres
+6.1 Чтоб проверить какие истансы установлены поершол в режим root командой sudo su, проверил что установлено командой docker ps --all
+6.2 Удалил свой инстанс командой docker rm e0fd04c5016e
+7 Снова установил инстанс docker run --name postgres_test2 -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=12345 -e POSTGRES_DB=postgres -e PGDATA=/var/lib/postgres -d -v "/var/lib/postgres":/var/lib/postgres  postgres:14
+8 Подключился удаленно psql -U postgres -p 5432 -h 158.160.22.186
+9 В новом инстансе также доступна таблица test1
