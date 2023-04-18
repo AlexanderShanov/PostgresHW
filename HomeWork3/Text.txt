@@ -1,0 +1,25 @@
+1 Создал виртуальную машину в yandex.cloud
+2 Установил Postgres 15
+3 Создал таблицу test(c1 text)
+4 Остановил postgres через sudo -u postgres pg_ctlcluster 15 main stop
+5 Создал новый диск и подсоединил его к ВМ
+6 проинациализировал его согласно инструкции https://www.digitalocean.com/community/tutorials/how-to-partition-and-format-storage-devices-in-linux
+7 Перезагрузился, проверил что диск примонтирован
+8 Сделал пользователя postgres владельцем /mnt/data - chown -R postgres:postgres /mnt/data/
+9 Перенес содержимое /var/lib/postgres/15 в /mnt/mydata - mv /var/lib/postgresql/15 /mnt/mydata
+10 При попытке запустить кластер не работает - sudo -u postgres pg_ctlcluster 15 main start,
+потому что все его данные перемещены в другой какталог, и он не знает куда.
+11 Поменял в sudo nano postgresql.conf параметр data_directory = '/mnt/mydata/15/main' согласно инструкции https://www.8host.com/blog/peremeshhenie-kataloga-dannyx-postgresql-v-ubuntu-18-04/
+12 Перезагрузил BM и все снова заработало
+13 Таблица test не потерялась
+14 Остановил ВМ, отсоединил от нее диск.
+15 Создал новую ВМ, подсоедини к ней диск.
+16 Подмонтировал его файловой системе sudo nano /etc/fstab, 
+добавив строчку LABEL=mynewlabel /mnt/datamy2 ext4 defaults 0 2
+17 Останови кластер
+18 Удалил содержмое папки user3@hwt3:/var/lib/postgresql$ sudo rm -Rfv 15
+19 Поменял user3@hwt3:/var/lib/postgresql$ sudo rm -Rfv 15
+20 Поменял в sudo nano postgresql.conf параметр data_directory = '/mnt/mydata2/15/main'
+21 Запустил sudo -u postgres pg_ctlcluster 15 main start
+22 Таблица test не потерялась!!
+
