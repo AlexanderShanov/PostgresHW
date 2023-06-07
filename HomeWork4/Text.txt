@@ -1,0 +1,37 @@
+3. create database testdb;
+4. \c testdb
+5. create schema testnm;
+6. create table t1(c1 int);
+7. insert into t1 values (1);
+8. create role readonly;
+9. grant connect on database testdb to readonly;
+10. grant usage on schema testnm to readonly;
+11. grant select on all tables in schema testnm to readonly;
+12. create user testread password '123';
+13. grant readonly to testread;
+14. psql -h localhost -d testdb -U testread
+15. select * from t1; выдает сообщение ERROR:  permission denied for table t1 
+16. необходимо переместить таблицу из public в новую схему ALTER TABLE t1 SET SCHEMA testnm;
+17. и запрос делать с указанием схемы select * from testnm.t1;
+19. \dt
+23. drop table t1;
+24. create table testnm.t1(c1 int);
+25 insert into testnm.t1 values (1);
+26. psql -h localhost -d testdb -U testread
+27. select * from testnm.t1;
+28. ERROR:  permission denied for table t1
+29. Посмотрель в шпаргалке: ALTER default privileges in SCHEMA testnm grant SELECT on TABLEs to readonly; 
+30. select * from testnm.t1; от testread несработал
+31. Пересоздал таблицу от пользователя postgers, можно было сделать как в уроке: grant select on public.tbl3 to tuser;
+32. select * from testnm.t1; от testread ПОЛУЧИЛОСЬ!!
+33. create table t2(c1 integer); insert into t2 values (2); от testread получилось!!
+34. в шпаргалке пишут что public доступен всегда.
+35. Если верить шпаргалке то команды:
+revoke CREATE on SCHEMA public FROM public; 
+revoke all on DATABASE testdb FROM public; 
+недоют создавать в public таблицы.
+36. Но после выполнения revoke я все равно от пользователя testread в public создал даблицу create table t3(c1 integer); insert into t2 values (2);
+Пробовал: 
+revoke all on SCHEMA public FROM testread;
+revoke all on SCHEMA public FROM readonly;
+Все равно пользователя testread имеет возможность создавать таблицы в public
