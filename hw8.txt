@@ -1,0 +1,73 @@
+Установил Postgres 15 
+2. Проинициализировал таблицы pgbench -i testbd
+3. Все тестирование осуществлял запросом pgbench -c 50 -j 2 -P 5 -T 1200 testbd
+4. Первый тест, с базовыми настройками выдал tps = 468.543289 (without initial connection time)
+5. Во втором тесте, включил autovacuum и checkpoint с базовыми настройками:
+
+autovacuum = on
+autovacuum_vacuum_threshold = 50
+autovacuum_vacuum_scale_factor = 0.2
+track_counts = on
+
+checkpoint_timeout = 5min
+checkpoint_completion_target = 0.9
+
+Получил производительность tps = 440.149426 (without initial connection time)
+
+6. В третьем тесте, использовал рекомендованные настройки к моей конфигурации с сайта https://pgtune.leopard.in.ua/ 
+
+# DB Version: 15
+# OS Type: linux
+# DB Type: mixed на верно это не правильно))
+# Total Memory (RAM): 2 GB
+# CPUs num: 2
+# Connections num: 100
+# Data Storage: ssd
+
+max_connections = 100
+shared_buffers = 512MB
+effective_cache_size = 1536MB
+maintenance_work_mem = 128MB
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+default_statistics_target = 100
+random_page_cost = 1.1
+effective_io_concurrency = 200
+work_mem = 1310kB
+min_wal_size = 1GB
+max_wal_size = 4GB
+
+дополнил
+autovacuum = on
+autovacuum_vacuum_threshold = 50
+autovacuum_vacuum_scale_factor = 0.2
+track_counts = on
+checkpoint_timeout = 5min
+checkpoint_completion_target = 0.9
+
+Получил производительность tps = 512.574994 (without initial connection time)
+
+7. В результате серии тестов вывел конфигурацию
+
+max_connections = 50 <= потому что в тесте использую 50
+shared_buffers = 512MB <= оптимально как и рекомендовано 25% от ОП
+effective_cache_size = 1536MB <= оптимально как и рекомендовано 75% от ОП
+maintenance_work_mem = 128MB
+checkpoint_completion_target = 0.9 
+wal_buffers = 16MB <= оптимально как и рекомендовано 16MB
+default_statistics_target = 100
+random_page_cost = 1.1
+effective_io_concurrency = 200 
+work_mem = 1310kB <= оптимально изначально
+min_wal_size = 512MB 
+max_wal_size = 1GB  <= изменил в меньшую сторону, тaк как размер wal файлов увеличилось на 900MB, после уменьшения с 4GB до 1GB, производительность немного возросла
+
+autovacuum = on
+autovacuum_vacuum_threshold = 50 
+autovacuum_vacuum_scale_factor = 0.01 <=
+track_counts = on
+
+checkpoint_timeout = 15min <= установил 15min , чтоб гарантировано попадал в период теста в 20 мин, во всех рекомендация 30 мин – 1 час
+checkpoint_completion_target = 0.9
+
+Получил производительность tps = 524.179941 (without initial connection time)
