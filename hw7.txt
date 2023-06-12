@@ -1,0 +1,126 @@
+1 Настройте сервер так, чтобы в журнал сообщений сбрасывалась информация о блокировках, 
+удерживаемых более 200 миллисекунд. Воспроизведите ситуацию, при которой в журнале появятся такие сообщения.
+
+ALTER SYSTEM SET log_lock_waits = on;
+ALTER SYSTEM SET log_min_duration_statement = 200;
+SELECT pg_reload_conf();
+
+2 Смоделируйте ситуацию обновления одной и той же строки тремя командами UPDATE в разных сеансах. 
+Изучите возникшие блокировки в представлении pg_locks и убедитесь, что все они понятны. 
+Пришлите список блокировок и объясните, что значит каждая.
+
+
+Команды:
+Первый процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+
+Второй процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+
+Третий процесс:
+BEGIN;
+UPDATE accounts SET acc_no = 4; WHERE acc_no = 1;
+
+Четвертый процесс:
+
+homework1=# SELECT locktype, relation::REGCLASS, mode, granted, pid, pg_blocking_pids(pid) AS wait_for
+
+FROM pg_locks WHERE relation = 'accounts'::regclass order by pid;
+
+ locktype | relation |        mode         | granted | pid  | wait_for 
+
+----------+----------+---------------------+---------+------+----------
+
+ relation | accounts | RowExclusiveLock    | t       | 1743 | {} =>  первый процесс, relation блокирует сам себя потому что не закомичени;
+																	 
+
+ relation | accounts | RowExclusiveLock    | t       | 1828 | {1743} =>  второй процесс, relation блокирует сам себя потому что не закомичени;
+
+ tuple    | accounts | ExclusiveLock       | t       | 1828 | {1743} =>  второй процесс, tuple две перации над одним полем на уровне обектов получает уровень блокировки ExclusiveLock
+
+ relation | accounts | RowExclusiveLock    | t       | 1894 | {1828} =>  третий процесс, relation блокирует сам себя потому что не закомичени;
+
+ tuple    | accounts | AccessExclusiveLock | f       | 1894 | {1828} =>  третий процесс, tuple три перации над одним полем,
+																			granted = false потому что в очереди ссылается не на первый блокирующий процесс
+																			установлен уровень доступа AccessExclusiveLock потому что в строке меняю поле PRIMARY KEY, и для этого до пройти про всем строчкам и проверить юникальность поля исоответстевнно заблокировать всю таблицу
+
+
+3 Воспроизведите взаимоблокировку трех транзакций. Можно ли разобраться в ситуации постфактум, изучая журнал сообщений?
+
+Команды последовательно:
+1 шаг Первый процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+2 шаг Второй процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 2;
+3 шаг Третий процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+4 шаг Первый процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 2;
+5 шаг Второй процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+6 шаг Третий процесс:
+BEGIN;
+UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1; <= петля замыкается
+
+В логе:
+2023-06-12 17:05:25.049 UTC [6745] LOG:  database system is ready to accept connections
+2023-06-12 17:13:12.612 UTC [6921] postgres@homework2 WARNING:  there is already a transaction in progress
+2023-06-12 17:13:13.612 UTC [6921] postgres@homework2 LOG:  process 6921 still waiting for ShareLock on transaction 773 after 1000.068 ms
+2023-06-12 17:13:13.612 UTC [6921] postgres@homework2 DETAIL:  Process holding the lock: 7003. Wait queue: 6921. <= Шаг номер 4, первый процесс блокируется вторым процессом
+2023-06-12 17:13:13.612 UTC [6921] postgres@homework2 CONTEXT:  while updating tuple (0,2) in relation "accounts"
+2023-06-12 17:13:13.612 UTC [6921] postgres@homework2 STATEMENT:  UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 2;
+2023-06-12 17:13:45.358 UTC [7003] postgres@homework2 WARNING:  there is already a transaction in progress
+2023-06-12 17:13:46.358 UTC [7003] postgres@homework2 LOG:  process 7003 still waiting for ShareLock on transaction 774 after 1000.198 ms
+2023-06-12 17:13:46.358 UTC [7003] postgres@homework2 DETAIL:  Process holding the lock: 6931. Wait queue: 7003. <= Шаг номер 5, второй процесс блокируется третьим процессом
+2023-06-12 17:13:46.358 UTC [7003] postgres@homework2 CONTEXT:  while updating tuple (0,3) in relation "accounts"
+2023-06-12 17:13:46.358 UTC [7003] postgres@homework2 STATEMENT:  UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+2023-06-12 17:14:02.015 UTC [6931] postgres@homework2 WARNING:  there is already a transaction in progress
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 LOG:  process 6931 detected deadlock while waiting for ShareLock on transaction 772 after 1000.103 ms
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 DETAIL:  Process holding the lock: 6921. Wait queue: .
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 CONTEXT:  while updating tuple (0,1) in relation "accounts"
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 STATEMENT:  UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 ERROR:  deadlock detected
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 DETAIL:  Process 6931 waits for ShareLock on transaction 772; blocked by process 6921. <= Шаг номер 6, третий процесс блокируется первым процессом получилась петля и происходит ошибка в третьей транзакции
+	Process 6921 waits for ShareLock on transaction 773; blocked by process 7003. <= первый процесс блокируется вторым процессом
+	Process 7003 waits for ShareLock on transaction 774; blocked by process 6931. <= второй процесс блокируется третьим процессом
+	Process 6931: UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+	Process 6921: UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 2;
+	Process 7003: UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 HINT:  See server log for query details.
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 CONTEXT:  while updating tuple (0,1) in relation "accounts"
+2023-06-12 17:14:03.015 UTC [6931] postgres@homework2 STATEMENT:  UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 1;
+2023-06-12 17:14:03.015 UTC [7003] postgres@homework2 LOG:  process 7003 acquired ShareLock on transaction 774 after 17656.963 ms
+2023-06-12 17:14:03.015 UTC [7003] postgres@homework2 CONTEXT:  while updating tuple (0,3) in relation "accounts"
+2023-06-12 17:14:03.015 UTC [7003] postgres@homework2 STATEMENT:  UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+2023-06-12 17:14:03.015 UTC [7003] postgres@homework2 LOG:  duration: 17657.164 ms  statement: UPDATE accounts SET amount = amount - 100.00 WHERE acc_no = 3;
+
+
+4 Могут ли две транзакции, выполняющие единственную команду UPDATE одной и той же таблицы (без where), заблокировать друг друга?
+Если верить этой статье, то наверно возможно https://habr.com/ru/companies/postgrespro/articles/465263/
+Но у меня чето не получилось воспроизвести покачто))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
