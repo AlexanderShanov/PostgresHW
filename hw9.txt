@@ -1,0 +1,63 @@
+
+-----vm1 158.160.22.186
+create database otus1;
+\c otus1
+\password => добавил пороль
+create table test(id int, info text); => таблица на запись
+insert into test values (1, '123');
+create table test2(id int, info text);
+create publication test_pub for table test;
+sudo nano pg_hba.conf => IPv4 local connections: 0.0.0.0/0
+sudo nano postgresql.conf=> listen_addresses = '*'
+sudo pg_ctlcluster 14 main restart
+
+
+
+
+-----vm2 158.160.25.226
+create database otus1;
+\c otus2
+\password => добавил пороль
+create table test(id int, info text);
+create table test2(id int, info text); => таблица на запись
+insert into test2 values (1, '1231231');
+create publication test2_pub for table test2;
+sudo nano pg_hba.conf => IPv4 local connections: 0.0.0.0/0
+sudo nano postgresql.conf  => listen_addresses = '*'
+sudo pg_ctlcluster 14 main restart
+
+CREATE SUBSCRIPTION test_sub 
+CONNECTION 'host=158.160.22.186 port=5432 user=postgres password=123 dbname=otus1' 
+PUBLICATION test_pub WITH (copy_data = true);
+
+
+-----vm1
+CREATE SUBSCRIPTION test2_sub 
+CONNECTION 'host=158.160.25.226 port=5432 user=postgres password=123 dbname=otus2' 
+PUBLICATION test2_pub WITH (copy_data = true);
+
+
+-----vm3 158.160.74.95
+create table test(id int, info text);
+create table test2(id int, info text)
+
+CREATE SUBSCRIPTION test3_sub 
+CONNECTION 'host=158.160.22.186 port=5432 user=postgres password=123 dbname=otus1' 
+PUBLICATION test_pub WITH (copy_data = true);
+
+CREATE SUBSCRIPTION test3_2_sub 
+CONNECTION 'host=158.160.25.226 port=5432 user=postgres password=123 dbname=otus2' 
+PUBLICATION test2_pub WITH (copy_data = true);
+
+для последнего задниея со * 
+sudo nano pg_hba.conf => IPv4 local connections: 0.0.0.0/0
+sudo nano pg_hba.conf => IPv4 Allow replication: host replication all    0.0.0.0/0  возможно лишнее, все заработало после добавления пороля
+sudo nano postgresql.conf=> listen_addresses = '*'
+\password => добавил пороль и все заработало, до этого было блуждание, поэтому возможно были сделаны лишние настройки))
+
+-----vm3 158.160.4.246
+sudo nano pg_hba.conf => IPv4 local connections: 0.0.0.0/0 => возможно лишнее)
+sudo nano postgresql.conf  => listen_addresses = '*' => возможно лишнее)
+sudo rm -rf /var/lib/postgresql/14/main => удалил содержимое
+sudo -u postgres pg_basebackup -p 5432 -h 158.160.74.95 -R -D /var/lib/postgresql/14/main
+
